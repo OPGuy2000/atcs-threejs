@@ -7,7 +7,7 @@ const renderer = new THREE.WebGLRenderer({antialias: true, canvas});
 const fov = 75;
 const aspect = 2;  // the canvas default
 const near = 0.1;
-const far = 5;
+const far = 50;
 
 const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
 
@@ -26,8 +26,8 @@ const cubes = [
 
 //add lighting
 const color = 0xFFFFFF;
-const intensity = 3;
-const light = new THREE.DirectionalLight(color, intensity);
+const intensity = 1;
+const light = new THREE.AmbientLight(color, intensity);
 light.position.set(-1, 2, 4);
 scene.add(light);
 
@@ -44,9 +44,10 @@ function makeCube(geometry, color, x) {
 
 function render(time) {
     time *= 0.001;
+    
 
     cubes.forEach((cube, ndx) => {
-        const speed = 1 + ndx * .1;
+        const speed = 0.5 + ndx * .1;
         const rot = time * speed;
         cube.rotation.x = rot;
         cube.rotation.y = rot;
