@@ -1,66 +1,68 @@
 const canvas = document.querySelector('#c');
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+const renderer = new THREE.WebGLRenderer({antialias: true, canvas});
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
+// Set renderer size to match window
+function resizeRenderer() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    renderer.setSize(width, height);
+}
+resizeRenderer();
+window.addEventListener('resize', resizeRenderer);
 
-// Define the frustum size for the orthographic camera
-const frustumSize = 5;
+// Orthographic camera setup
 const aspect = window.innerWidth / window.innerHeight;
-
-// Create an orthographic camera
+const frustumSize = 10; // Controls how much of the scene is visible
+const cameraOffset = new THREE.Vector3(5, 5, 5);
 const camera = new THREE.OrthographicCamera(
-  (-frustumSize * aspect) / 2, 
-  (frustumSize * aspect) / 2,  
-  frustumSize / 2,             
-  -frustumSize / 2,            
-  0.1,                         
-  50                          
+    frustumSize * aspect / -2, // left
+    frustumSize * aspect / 2,  // right
+    frustumSize / 2,           // top
+    frustumSize / -2,          // bottom
+    0.1,                      // near
+    100                       // far
 );
 
-camera.position.set(5, 5, 5);
-camera.lookAt(0, 0, 0);
-
 const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xf0f0f0);
 
-// Create cubes
+// Add a player
 const geometry = new THREE.BoxGeometry(1, 1, 1);
-const cubes = [
-    makeCube(geometry, 0x00FFFF, 0),
-    makeCube(geometry, 0xFF00FF, -2),
-    makeCube(geometry, 0xFFFF00, 2),
-];
+const material = new THREE.MeshPhongMaterial({color: 0x00aaff});
+const player = new THREE.Mesh(geometry, material);
+scene.add(player);
 
-// Add lighting
-const color = 0xFFFFFF;
-const intensity = 1;
-const light = new THREE.DirectionalLight(color, intensity);
-light.position.set(5, 3, 2);
-scene.add(light);
+// Add lights
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambientLight);
 
-function makeCube(geometry, color, x) {
-    const material = new THREE.MeshPhongMaterial({ color });
-    const cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
-    cube.position.x = x;
-    return cube;
-}
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+directionalLight.position.set(1, 1, 1);
+scene.add(directionalLight);
 
-function render() {
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
+// Add grid helper
+const gridHelper = new THREE.GridHelper(10, 10);
+scene.add(gridHelper);
 
+// Add axes helper
+const axesHelper = new THREE.AxesHelper(2);
+scene.add(axesHelper);
+
+// Animation loop
+function animate() {
+    requestAnimationFrame(animate);
+
+    let newCameraPos = player.position.clone().add(cameraOffset)
+    camera.position.set(newCameraPos.x, newCameraPos.y, newCameraPos.z);
+    camera.lookAt(player.position);
+
+    console.log(camera.position);
+
+    
     renderer.render(scene, camera);
-    requestAnimationFrame(render);
 }
 
-// Handle window resize
-window.addEventListener('resize', () => {
-    const newAspect = window.innerWidth / window.innerHeight;
-    camera.left = (-frustumSize * newAspect) / 2;
-    camera.right = (frustumSize * newAspect) / 2;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
+animate();
 
-requestAnimationFrame(render);
+
+export { scene, player , camera};
