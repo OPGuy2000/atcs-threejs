@@ -26,33 +26,47 @@ const camera = new THREE.OrthographicCamera(
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xf0f0f0);
 
-// Add a player
-const geometry = new THREE.BoxGeometry(1, 1, 1);
-const material = new THREE.MeshPhongMaterial({color: 0x00aaff});
-const player = new THREE.Mesh(geometry, material);
+// Update player position (center, on top of ground)
+const playerGeometry = new THREE.BoxGeometry(1, 1, 1);
+const playerMaterial = new THREE.MeshPhongMaterial({color: 0x00aaff});
+const player = new THREE.Mesh(playerGeometry, playerMaterial);
+player.position.set(0, 0.5, 0); // Half height (0.5) above ground (0)
 scene.add(player);
 
-const groundGeometry = new THREE.BoxGeometry(100, 1, 100); // Increase y value from 0.1 to 1
+// Update the ground position and size
+const groundGeometry = new THREE.BoxGeometry(100, 0.1, 100); // Thinner ground (height 0.1)
 const groundMaterial = new THREE.MeshPhongMaterial({color: 0x00ff00});
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-ground.position.set(0, player.position.y-1, 0); // Adjust position to account for thicker ground
+ground.position.set(0, 0, 0); // Ground sits at y=0
 scene.add(ground);
 
 // Add lights
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-directionalLight.position.set(0, 10, 0);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+
+gltf.scene.traverse(function(child) {
+    if (child.isMesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+})
+
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+directionalLight.position.set(0, 100, -200);
 scene.add(directionalLight);
 
 // // Add grid helper
-// const gridHelper = new THREE.GridHelper(10, 10);
-// scene.add(gridHelper);
+const gridHelper = new THREE.GridHelper(150, 50);
+scene.add(gridHelper);
 
-// // Add axes helper
-// const axesHelper = new THREE.AxesHelper(2);
-// scene.add(axesHelper);
+// Add axes helper
+const axesHelper = new THREE.AxesHelper(2);
+scene.add(axesHelper);
+
 
 // Add this near the top with other scene variables
 const trailParticles = [];
@@ -92,16 +106,15 @@ function updateTrailParticles() {
     }
 }
 
+// Update boulder generation to place them on ground
 function generateBoulders(count, areaSize) {
     const boulders = [];
     const boulderMaterial = new THREE.MeshPhongMaterial({color: 0x888888});
     
     for (let i = 0; i < count; i++) {
-        // Random size between 0.5 and 2.5
         const size = 0.5 + Math.random() * 2;
         const boulderGeometry = new THREE.BoxGeometry(size, size, size);
         
-        // Add some randomness to the shape
         boulderGeometry.scale(
             0.8 + Math.random() * 0.4,
             0.8 + Math.random() * 0.4,
@@ -110,13 +123,11 @@ function generateBoulders(count, areaSize) {
         
         const boulder = new THREE.Mesh(boulderGeometry, boulderMaterial);
         
-        // Random position within the area
         const x = (Math.random() - 0.5) * areaSize;
         const z = (Math.random() - 0.5) * areaSize;
         
-        // Position on top of the ground
+        // Position on ground (y = half height)
         boulder.position.set(x, size/2, z);
-        
         
         scene.add(boulder);
         boulders.push(boulder);
@@ -128,10 +139,39 @@ function generateBoulders(count, areaSize) {
 // Generate 50 boulders in a 80x80 area
 const boulders = generateBoulders(50, 80);
 
+// Add this near the top with other scene variables
+const enemies = [];
+const enemySpeed = 0.1; // Movement speed of enemies
+
+// Update enemy generation to place them on ground
+function generateEnemies(count, areaSize) {
+    const enemyMaterial = new THREE.MeshPhongMaterial({color: 0xff0000});
+    
+    for (let i = 0; i < count; i++) {
+        const size = 1;
+        const enemyGeometry = new THREE.BoxGeometry(size, size, size);
+        const enemy = new THREE.Mesh(enemyGeometry, enemyMaterial);
+        
+        let x, z;
+        do {
+            x = (Math.random() - 0.5) * areaSize;
+            z = (Math.random() - 0.5) * areaSize;
+        } while (Math.abs(x) < 5 && Math.abs(z) < 5);
+        
+        // Position on ground (y = half height)
+        enemy.position.set(x, size/2, z);
+        scene.add(enemy);
+        enemies.push({
+            mesh: enemy,
+            size: size
+        });
+    }
+}
+
+// Generate 10 enemies in an 80x80 area
+generateEnemies(10, 80);
 
 
-
-// Animation loop
 function animate() {
     requestAnimationFrame(animate);
 
@@ -141,10 +181,11 @@ function animate() {
 
     directionalLight.lookAt(player.position);
     
-    updateTrailParticles(); // Add this line
+    updateTrailParticles();
+    //updateEnemies(); // Add this line to update enemy movement
     renderer.render(scene, camera);
 }
 
 animate();
 
-export { scene, player, camera, cameraOffset, createTrailParticle, boulders };
+export { scene, player, camera, cameraOffset, createTrailParticle, boulders, enemies };

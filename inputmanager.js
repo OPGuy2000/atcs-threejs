@@ -1,5 +1,4 @@
-import { player, camera, cameraOffset, createTrailParticle, boulders } from './index.js';
-
+import { player, camera, cameraOffset, createTrailParticle, boulders, enemies } from './index.js';
 const moveSpeed = 0.20;
 const rotSpeed = 0.04;
 const keys = {};
@@ -21,12 +20,12 @@ document.addEventListener('contextmenu', event => event.preventDefault());
 
 // Track key presses
 document.addEventListener('keydown', (event) => {
-    keys[event.key] = true;
-    //keys[event.code] = true;
+    keys[event.key.toLowerCase()] = true;
+    //[event.code] = true;
 });
 
 document.addEventListener('keyup', (event) => {
-    keys[event.key] = false;
+    keys[event.key.toLowerCase()] = false;
     //keys[event.code] = false;
 });
 function updateMovement() {
@@ -48,7 +47,7 @@ function updateMovement() {
     }
 
     // Check for dash input (left shift)
-    if (keys['Shift'] && !isDashing && dashUp) {
+    if (keys['shift'] && !isDashing && dashUp) {
         isDashing = true;
         dashEndTime = Date.now() + dashDuration;
         dashUpTime = dashEndTime + dashCooldown;
@@ -111,43 +110,97 @@ function updateMovement() {
 
     requestAnimationFrame(updateMovement);
 }
-
-// Add this new collision detection function
+// Updated collision detection function
 function checkCollisions(originalPosition) {
-    // Player's bounding box (simplified to a sphere for this example)
-    const playerRadius = 0.5; // Half of player's width
+    // Player's bounding sphere
+    const playerRadius = 0.5;
+    const playerSphere = new THREE.Sphere(player.position.clone(), playerRadius);
     
+    // Check player collisions with boulders
     for (const boulder of boulders) {
-        // Get boulder dimensions from its geometry
-        const boulderSize = boulder.geometry.parameters.width; // Assuming box geometry
+        const boulderSize = boulder.geometry.parameters.width;
         const boulderRadius = boulderSize / 2;
+        const boulderSphere = new THREE.Sphere(boulder.position.clone(), boulderRadius);
         
-        // Calculate distance between player and boulder
-        const distance = player.position.distanceTo(boulder.position);
-        
-        // If distance is less than sum of radii, we have a collision
-        if (distance < playerRadius + boulderRadius) {
-            // Calculate push-back direction
+        if (playerSphere.intersectsSphere(boulderSphere)) {
             const direction = new THREE.Vector3()
                 .subVectors(player.position, boulder.position)
                 .normalize();
             
-            // Move player to edge of boulder
             const newPosition = new THREE.Vector3()
                 .copy(boulder.position)
                 .add(direction.clone().multiplyScalar(playerRadius + boulderRadius));
             
-            // Only update X and Z to keep player on ground
             player.position.x = newPosition.x;
             player.position.z = newPosition.z;
             
-            // Optional: Add a small visual feedback
+            // Visual feedback
             boulder.material.color.setHex(0xff0000);
-            setTimeout(() => {
-                boulder.material.color.setHex(0x888888);
-            }, 200);
+            setTimeout(() => boulder.material.color.setHex(0x888888), 200);
+            break;
+        }
+    }
+    
+    // Check player collisions with enemies
+    for (const enemy of enemies) {
+        const enemyRadius = enemy.size / 2;
+        const enemySphere = new THREE.Sphere(enemy.mesh.position.clone(), enemyRadius);
+        
+        if (playerSphere.intersectsSphere(enemySphere)) {
+            // Game over or health reduction would go here
+            console.log("Player hit by enemy!");
             
-            break; // Stop after first collision (optional)
+            // Push player away from enemy
+            const direction = new THREE.Vector3()
+                .subVectors(player.position, enemy.mesh.position)
+                .normalize();
+            
+            player.position.addScaledVector(direction, 1.0);
+        }
+    }
+    
+    // Check enemy collisions with boulders and other enemies
+    for (const enemy of enemies) {
+        const enemyRadius = enemy.size / 2;
+        const enemySphere = new THREE.Sphere(enemy.mesh.position.clone(), enemyRadius);
+        
+        // Enemy vs boulders
+        for (const boulder of boulders) {
+            const boulderSize = boulder.geometry.parameters.width;
+            const boulderRadius = boulderSize / 2;
+            const boulderSphere = new THREE.Sphere(boulder.position.clone(), boulderRadius);
+            
+            if (enemySphere.intersectsSphere(boulderSphere)) {
+                const direction = new THREE.Vector3()
+                    .subVectors(enemy.mesh.position, boulder.position)
+                    .normalize();
+                
+                const newPosition = new THREE.Vector3()
+                    .copy(boulder.position)
+                    .add(direction.clone().multiplyScalar(enemyRadius + boulderRadius));
+                
+                enemy.mesh.position.x = newPosition.x;
+                enemy.mesh.position.z = newPosition.z;
+            }
+        }
+        
+        // Enemy vs other enemies
+        for (const otherEnemy of enemies) {
+            if (enemy === otherEnemy) continue;
+            
+            const otherRadius = otherEnemy.size / 2;
+            const otherSphere = new THREE.Sphere(otherEnemy.mesh.position.clone(), otherRadius);
+            
+            if (enemySphere.intersectsSphere(otherSphere)) {
+                const direction = new THREE.Vector3()
+                    .subVectors(enemy.mesh.position, otherEnemy.mesh.position)
+                    .normalize();
+                
+                // Push both enemies apart
+                const pushDistance = (enemyRadius + otherRadius) * 0.5;
+                enemy.mesh.position.addScaledVector(direction, pushDistance * 0.5);
+                otherEnemy.mesh.position.addScaledVector(direction, -pushDistance * 0.5);
+            }
         }
     }
 }
